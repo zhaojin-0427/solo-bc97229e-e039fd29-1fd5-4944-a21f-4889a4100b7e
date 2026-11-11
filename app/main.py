@@ -1,27 +1,38 @@
-"""园区分表电量推算 API。
+"""园区分表电量推算与读数归档 API。
 
-结合总表与各分表的累计读数、分表功率上限，用线性规划求指定分表在
+推算：结合总表与各分表的累计读数、分表功率上限，用线性规划求指定分表在
 指定时段内可行耗电量的精确最小/最大值，用于判断结算分界时刻缺测的
 分表电量是否足以确定、是否需要补抄。
+
+归档：网关按 UTC 日上传读数行存为独立 NDJSON 片段（本地文件存片段、
+SQLite 存清单），支持按日下载原始行、合并小片段、片段数查询与清理。
 """
 from __future__ import annotations
 
 from fastapi import Body, FastAPI
 
+from .archive_api import router as archive_router
 from .models import InferRequest, InferResponse
 from .solver import MeterSeries, solve_window
 
 app = FastAPI(
-    title="园区分表电量推算 API",
+    title="园区分表电量推算与读数归档 API",
     description=(
         "输入采集系统导出的 1 个总表与 2~6 个分表的累计电量读数（UTC）"
         "及各分表功率上限，基于线性规划求指定分表在指定起止时刻之间"
         "可行耗电量的最小值与最大值（精确边界，非线性插值）。"
         "约束：任意时段总表耗电 = 全部分表之和；分表耗电非负且不超功率上限；"
         "不考虑损耗、换表与回零。读数不相容时返回 status=incompatible。"
+        "\n\n另提供读数归档 API：网关按 UTC 日上传读数行存为独立 NDJSON 片段"
+        "（本地文件存片段、SQLite 存清单），支持按日下载全部原始行（重复行保留）、"
+        "合并选定小片段为一个大片段（期间可继续上传，提交只替换选中片段）、"
+        "片段数查询与废弃文件清理；写文件、清单切换、清理任一环节进程中断，"
+        "重启后每次成功上传的行仍完整保留，且不暴露未写完的文件。"
     ),
-    version="1.0.0",
+    version="1.1.0",
 )
+
+app.include_router(archive_router)
 
 # ---------------------------------------------------------------------------
 # 交互式文档示例（Swagger UI /docs 中可直接 Try it out 演示）
@@ -122,7 +133,7 @@ EXAMPLE_INCOMPATIBLE = {
 
 @app.get("/", include_in_schema=False)
 def root() -> dict:
-    return {"service": "园区分表电量推算 API", "docs": "/docs", "health": "/health"}
+    return {"service": "园区分表电量推算与读数归档 API", "docs": "/docs", "health": "/health"}
 
 
 @app.get("/health", include_in_schema=False)

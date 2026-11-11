@@ -5,4 +5,11 @@ services:
     container_name: meter-infer-api
     ports:
       - "8000:8000"
+    environment:
+      ARCHIVE_DATA_DIR: /srv/app/data
+    volumes:
+      - archive_data:/srv/app/data
     restart: unless-stopped
+
+volumes:
+  archive_data:
