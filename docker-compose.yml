@@ -1,0 +1,8 @@
+services:
+  api:
+    build: .
+    image: meter-infer-api:latest
+    container_name: meter-infer-api
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
